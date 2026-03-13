@@ -131,6 +131,10 @@ require_cmd npm
 require_cmd python3
 require_cmd tee
 
+# Avoid local development git hooks on the server and keep Node memory bounded on small VPSs.
+export HUSKY=0
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}"
+
 if [[ ! -d "$APP_DIR/.git" ]]; then
   log "Application directory is not a git repository: ${APP_DIR}"
   exit 1

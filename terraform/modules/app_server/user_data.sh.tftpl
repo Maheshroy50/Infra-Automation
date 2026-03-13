@@ -25,6 +25,15 @@ log "Enabling Redis"
 systemctl enable redis-server
 systemctl restart redis-server
 
+if [ ! -f /swapfile ]; then
+  log "Creating swap file"
+  fallocate -l 2G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
 log "Preparing application directory"
 mkdir -p "$APP_DIR"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"

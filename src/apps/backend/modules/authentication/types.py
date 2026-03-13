@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum
 from typing import Union
 
 from modules.account.types import PhoneNumber
@@ -65,7 +65,7 @@ class PasswordResetTokenErrorCode:
 
 
 @dataclass(frozen=True)
-class OTPStatus(StrEnum):
+class OTPStatus(str, Enum):
     EXPIRED: str = "EXPIRED"
     PENDING: str = "PENDING"
     SUCCESS: str = "SUCCESS"
