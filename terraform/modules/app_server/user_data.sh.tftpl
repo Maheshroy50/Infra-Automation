@@ -1,0 +1,90 @@
+#!/bin/bash
+set -euo pipefail
+
+exec > >(tee -a /var/log/${app_name}-bootstrap.log) 2>&1
+
+APP_NAME="${app_name}"
+APP_DIR="${app_dir}"
+APP_USER="ubuntu"
+
+log() {
+  echo "[bootstrap][$(date '+%Y-%m-%d %H:%M:%S')] $*"
+}
+
+log "Updating package metadata"
+apt-get update -y
+
+log "Installing base packages"
+apt-get install -y ca-certificates curl git nginx python3 python3-venv redis-server rsync
+
+log "Installing Node.js 22"
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt-get install -y nodejs
+
+log "Enabling Redis"
+systemctl enable redis-server
+systemctl restart redis-server
+
+log "Preparing application directory"
+mkdir -p "$APP_DIR"
+chown -R "$APP_USER:$APP_USER" "$APP_DIR"
+
+if [ ! -d "$APP_DIR/.git" ]; then
+  log "Cloning repository ${repository_url}"
+  sudo -u "$APP_USER" git clone "${repository_url}" "$APP_DIR"
+else
+  log "Repository already exists, refreshing origin URL"
+  sudo -u "$APP_USER" git -C "$APP_DIR" remote set-url origin "${repository_url}"
+fi
+
+log "Installing systemd unit"
+cat >/etc/systemd/system/${app_name}.service <<EOF
+[Unit]
+Description=${app_name} gunicorn service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=www-data
+WorkingDirectory=${app_dir}/src/apps/backend
+Environment=APP_ENV=production
+Environment=PYTHONPATH=${app_dir}/src/apps/backend
+EnvironmentFile=-/etc/${app_name}.env
+ExecStartPre=/bin/rm -f /tmp/app.sock
+ExecStart=${app_dir}/src/apps/backend/venv/bin/gunicorn --workers 2 --umask 007 --bind unix:/tmp/app.sock --chdir ${app_dir}/src/apps/backend server:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable ${app_name}.service
+
+log "Writing example runtime environment file"
+cat >/etc/${app_name}.env <<'EOF'
+# Minimal runtime configuration for the Flask app.
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+WEB_APP_HOST=http://localhost
+
+# Add these if you want the full backend feature set.
+# MONGODB_URI=mongodb://localhost:27017/flask-react-template
+EOF
+chmod 640 /etc/${app_name}.env
+
+log "Configuring Nginx"
+cp "$APP_DIR/nginx-snippet.conf" "/etc/nginx/sites-available/${app_name}"
+ln -sf "/etc/nginx/sites-available/${app_name}" "/etc/nginx/sites-enabled/${app_name}"
+rm -f /etc/nginx/sites-enabled/default
+nginx -t
+systemctl enable nginx
+systemctl restart nginx
+
+log "Running first deployment"
+chmod +x "$APP_DIR/deploy.sh"
+sudo -u "$APP_USER" bash -lc "cd '$APP_DIR' && ./deploy.sh"
+
+log "Bootstrap completed"
