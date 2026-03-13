@@ -27,6 +27,15 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
+
+            if [ ! -d /var/www/flask-react-app/.git ]; then
+              echo "Expected git repo at /var/www/flask-react-app. Provision the server with Terraform first."
+              exit 1
+            fi
+
             cd /var/www/flask-react-app
+            git fetch --prune origin
+            git checkout main
+            git pull --ff-only origin main
             chmod +x deploy.sh
             ./deploy.sh

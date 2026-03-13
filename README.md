@@ -126,17 +126,6 @@ For the deployment assessment itself, the important part is the one-click build 
 3. Open the `Actions` tab in GitHub and watch `Deploy to Production`.
 4. After the job succeeds, refresh `http://<server-ip>` and confirm the change is live.
 
-## Suggested video demo
-
-For the 2 to 4 minute Loom recording:
-
-1. Show the live site.
-2. Change a visible line in the frontend.
-3. Push to `main`.
-4. Show the GitHub Actions run.
-5. Refresh the browser and show the updated page.
-6. Optionally show `terraform apply` output or the bootstrap logs to highlight the Terraform part.
-
 ## Notes for the reviewer
 
 - The deploy script is safe to rerun.
